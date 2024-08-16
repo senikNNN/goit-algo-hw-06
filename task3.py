@@ -1,4 +1,5 @@
 import networkx as nx
+import heapq
 
 # Створюємо порожній граф
 G = nx.Graph()
@@ -85,40 +86,54 @@ green_line_edges = [
     ("Бориспільська", "Червоний Хутір")
 ]
 
-# Додаємо ребра до графа
-G.add_edges_from(red_line_edges)
-G.add_edges_from(blue_line_edges)
-G.add_edges_from(green_line_edges)
-
-# Додаємо пересадки між лініями
-G.add_edge("Театральна", "Золоті ворота")
-G.add_edge("Хрещатик", "Майдан Незалежності")
-G.add_edge("Площа Льва Толстого", "Палац Спорту")
-
-# Визначаємо стандартну вагу і збільшену вагу для пересадочних станцій
+# Додаємо ребра до графа з вагою
 standard_weight = 1
 transfer_weight = 2
 
-# Визначаємо пересадочні станції
-transfer_stations = {'Золоті Ворота', 'Театральна', 'Майдан Незалежності', 'Хрещатик', 'Палац Спорту', 'Площа Льва Толстого'}
+G.add_weighted_edges_from([(u, v, standard_weight) for u, v in red_line_edges])
+G.add_weighted_edges_from([(u, v, standard_weight) for u, v in blue_line_edges])
+G.add_weighted_edges_from([(u, v, standard_weight) for u, v in green_line_edges])
 
-# Додаємо ваги до ребер
-for (u, v) in G.edges():
-    if u in transfer_stations or v in transfer_stations:
-        G.edges[u, v]['weight'] = transfer_weight
-    else:
-        G.edges[u, v]['weight'] = standard_weight
+# Додаємо пересадки між лініями з більшою вагою
+transfer_edges = [
+    ("Театральна", "Золоті ворота"),
+    ("Хрещатик", "Майдан Незалежності"),
+    ("Площа Льва Толстого", "Палац Спорту")
+]
 
-# Функція для знаходження найкоротшого шляху з допомогою алгоритму Дейкстри
-def dijkstra_all_pairs_shortest_paths(G):
-    return dict(nx.all_pairs_dijkstra_path(G, weight='weight'))
+G.add_weighted_edges_from([(u, v, transfer_weight) for u, v in transfer_edges])
 
-# Застосовуємо алгоритм Дейкстри для всіх пар вершин
-shortest_paths = dijkstra_all_pairs_shortest_paths(G)
+# Реалізація алгоритму Дейкстри
+def dijkstra_nx(graph, start_vertex):
+    # Ініціалізація відстаней до всіх вершин як нескінченність
+    distances = {vertex: float('infinity') for vertex in graph.nodes}
+    distances[start_vertex] = 0
 
-# Виводимо результати
-print("Найкоротші шляхи між усіма вершинами графа з урахуванням ваг пересадок:")
-for start, paths in shortest_paths.items():
-    for end, path in paths.items():
-        print(f"Шлях від {start} до {end}: {path}")
+    # Пріоритетна черга для пошуку найближчої вершини
+    priority_queue = [(0, start_vertex)]
+    
+    while priority_queue:
+        current_distance, current_vertex = heapq.heappop(priority_queue)
 
+        # Якщо знайдена відстань більша за вже відому, то продовжуємо
+        if current_distance > distances[current_vertex]:
+            continue
+
+        # Оновлення відстаней до сусідніх вершин
+        for neighbor in graph.neighbors(current_vertex):
+            weight = graph[current_vertex][neighbor]['weight']
+            distance = current_distance + weight
+
+            # Якщо знайдена коротша відстань, то оновлюємо її
+            if distance < distances[neighbor]:
+                distances[neighbor] = distance
+                heapq.heappush(priority_queue, (distance, neighbor))
+
+    return distances
+
+# Знаходимо найкоротший шлях від 'Академмістечко' до всіх інших станцій
+shortest_paths = dijkstra_nx(G, 'Академмістечко')
+
+# Виведення результатів
+for destination, distance in shortest_paths.items():
+    print(f"Найкоротший шлях від Академмістечко до {destination}: {distance}")
